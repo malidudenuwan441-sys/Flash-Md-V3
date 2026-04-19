@@ -3,6 +3,8 @@ globalThis.require = createRequire(import.meta.url);
 
 import Pino from 'pino'
 import fs from 'fs'
+import axios from 'axios';
+import * as cheerio from 'cheerio';
 import path from 'path'
 import express from 'express'
 import { Boom } from '@hapi/boom'
@@ -665,7 +667,46 @@ async function start() {
             continue
           }
         }
-        
+        // --- [ FITGIRL DOWNLOADER LOGIC START ] ---
+        if (!isNaN(body) && global.fitgirl_results && !isFromMe) {
+            const index = parseInt(body) - 1;
+            if (index >= 0 && index < global.fitgirl_results.length) {
+                const selectedGame = global.fitgirl_results[index];
+                
+                await sock.sendMessage(from, { text: "⏳ *Game විස්තර පරීක්ෂා කරමින් පවතිනවා...*" });
+
+                try {
+                    const { data } = await axios.get(selectedGame.link);
+                    const $ = cheerio.load(data);
+                    
+                    let directLinks = [];
+                    $('a').each((i, el) => {
+                        const href = $(el).attr('href');
+                        if (href && (href.includes('mediafire') || href.includes('pixeldrain') || href.includes('krakenfiles'))) {
+                            directLinks.push(href);
+                        }
+                    });
+
+                    if (directLinks.length > 0) {
+                        await sock.sendMessage(from, { text: `📥 *Downloading Part 1...*` });
+
+                        await sock.sendMessage(from, { 
+                            document: { url: directLinks[0] }, 
+                            mimetype: 'application/octet-stream',
+                            fileName: `${selectedGame.title}_Part1.rar`,
+                            caption: `✅ *Part 1 successfully sent!*\n🎮 *Game:* ${selectedGame.title}`
+                        }, { quoted: msg });
+
+                    } else {
+                        await sock.sendMessage(from, { text: "❌ මෙම Game එක සඳහා direct links හමු වූයේ නැත." });
+                    }
+                } catch (err) {
+                    console.log('Error in FitGirl Downloader:', err);
+                }
+                return; 
+            }
+        }
+        // --- [ FITGIRL DOWNLOADER LOGIC END ] ---
         const [cmdName, ...args] = commandBody.trim().split(/\s+/)
         const name = commandAliases.get(cmdName.toLowerCase()) || cmdName.toLowerCase()
         const command = commands.get(name)

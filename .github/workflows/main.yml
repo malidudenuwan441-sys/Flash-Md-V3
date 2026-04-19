@@ -29,3 +29,4 @@ jobs:
 
     - name: Start application
       run: npm start
+           npm install --platform=linux --arch=x64 sharp
